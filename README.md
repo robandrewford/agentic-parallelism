@@ -2,7 +2,7 @@
   <h1 align="center">🤖 Agentic Parallelism: A Practical Guide 🚀</h1>
 </p>
 <p align="center">
-  Core concepts for applying parallelism in AI agent solutions.
+  Conceptual based implementations of 14 core patterns for building faster, smarter, and more reliable AI agentic systems using LangChain and LangGraph.
 </p>
 
 ---
