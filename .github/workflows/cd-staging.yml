@@ -13,26 +13,23 @@ jobs:
         app:
           - name: parallel_tool_use
             container_app_name: parallel-tool-use-staging
-          # Add more apps as they are refactored
-          # - name: 02_parallel_hypothesis
-          #   container_app_name: parallel-hypothesis-staging
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-      
+
       - name: Log in to Azure
         uses: azure/login@v2
         with:
+          # Service principal JSON with clientId, clientSecret, tenantId, subscriptionId
           creds: ${{ secrets.AZURE_CREDENTIALS }}
-      
+
       - name: Log in to Azure Container Registry
         uses: azure/docker-login@v1
         with:
           login-server: ${{ secrets.AZURE_REGISTRY }}
           username: ${{ secrets.AZURE_CLIENT_ID }}
           password: ${{ secrets.AZURE_CLIENT_SECRET }}
-      
+
       - name: Build Docker image
         run: |
           docker build \
@@ -40,29 +37,28 @@ jobs:
             -t ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:staging-latest \
             -f apps/${{ matrix.app.name }}/Dockerfile \
             .
-      
+
       - name: Push Docker image
         run: |
           docker push ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:staging-${{ github.sha }}
           docker push ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:staging-latest
-      
+
       - name: Deploy to Azure Container Apps
         uses: azure/container-apps-deploy-action@v1
         with:
-          resource-group: ${{ secrets.AZURE_RESOURCE_GROUP }}
-          container-app-name: ${{ matrix.app.container_app_name }}
+          resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          containerAppName: ${{ matrix.app.container_app_name }}
           image: ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:staging-${{ github.sha }}
-          environment-variables: |
+          environmentVariables: |
             ENVIRONMENT=staging
             VERSION=${{ github.sha }}
             LLM_PROVIDER=openai
             SENTRY_ENVIRONMENT=staging
-      
+
       - name: Verify deployment
         run: |
           echo "Waiting for deployment to complete..."
           sleep 30
-          # Get the app URL and check health endpoint
           APP_URL=$(az containerapp show \
             --name ${{ matrix.app.container_app_name }} \
             --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
