@@ -47,26 +47,42 @@ jobs:
         run: |
           az extension add --name containerapp --upgrade
 
-      - name: Get Resource Group Location
-        id: get_location
-        run: |
-          LOCATION=$(az group show --name ${{ secrets.AZURE_RESOURCE_GROUP }} --query location -o tsv)
-          echo "location=$LOCATION" >> $GITHUB_OUTPUT
-
       - name: Deploy to Azure Container Apps
         run: |
-          az containerapp up \
-            --name ${{ matrix.app.container_app_name }} \
-            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-            --location ${{ steps.get_location.outputs.location }} \
-            --image ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:staging-${{ github.sha }} \
-            --ingress external \
-            --target-port 8000 \
-            --registry-server ${{ secrets.AZURE_REGISTRY }} \
-            --registry-username ${{ secrets.AZURE_CLIENT_ID }} \
-            --registry-password ${{ secrets.AZURE_CLIENT_SECRET }} \
-            --env-vars ENVIRONMENT=staging VERSION=${{ github.sha }} LLM_PROVIDER=openai SENTRY_ENVIRONMENT=staging \
-            --debug
+          # 1. Find Container Apps Environment
+          ENV_NAME=$(az containerapp env list -g ${{ secrets.AZURE_RESOURCE_GROUP }} --query "[0].name" -o tsv)
+          if [ -z "$ENV_NAME" ]; then
+            echo "❌ No Container Apps Environment found in resource group ${{ secrets.AZURE_RESOURCE_GROUP }}."
+            echo "Please create one manually or ensure the Service Principal has permissions to see it."
+            exit 1
+          fi
+          echo "✅ Found Environment: $ENV_NAME"
+
+          # 2. Check if App exists
+          APP_EXISTS=$(az containerapp show -n ${{ matrix.app.container_app_name }} -g ${{ secrets.AZURE_RESOURCE_GROUP }} --query id -o tsv || echo "")
+
+          # 3. Deploy
+          if [ -n "$APP_EXISTS" ]; then
+            echo "🚀 App exists. Updating..."
+            az containerapp update \
+              --name ${{ matrix.app.container_app_name }} \
+              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+              --image ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:staging-${{ github.sha }} \
+              --set-env-vars ENVIRONMENT=staging VERSION=${{ github.sha }} LLM_PROVIDER=openai SENTRY_ENVIRONMENT=staging
+          else
+            echo "🚀 App does not exist. Creating..."
+            az containerapp create \
+              --name ${{ matrix.app.container_app_name }} \
+              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+              --environment $ENV_NAME \
+              --image ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:staging-${{ github.sha }} \
+              --target-port 8000 \
+              --ingress external \
+              --registry-server ${{ secrets.AZURE_REGISTRY }} \
+              --registry-username ${{ secrets.AZURE_CLIENT_ID }} \
+              --registry-password ${{ secrets.AZURE_CLIENT_SECRET }} \
+              --env-vars ENVIRONMENT=staging VERSION=${{ github.sha }} LLM_PROVIDER=openai SENTRY_ENVIRONMENT=staging
+          fi
 
       - name: Verify deployment
         run: |
