@@ -96,14 +96,37 @@ az acr credential show --name agenticparallelismacr
 To enable the automated deployment pipelines (`.github/workflows/`), you must set the following secrets in your GitHub Repository settings (**Settings** > **Secrets and variables** > **Actions**).
 
 ### Azure Credentials
+Log in to Azure interactively (if you aren't already)
+az login
+
+Choose the subscription you want the CI/CD pipeline to use
+az account set --subscription <YOUR_SUBSCRIPTION_ID>
+
 Generate a service principal for GitHub Actions:
 ```bash
 # Replace <SUBSCRIPTION_ID> with your Azure Subscription ID
 # Replace <RESOURCE_GROUP> with your Resource Group name (e.g., agentic-parallelism-rg)
-az ad sp create-for-rbac --name "github-actions-agentic" \
-                         --role contributor \
-                         --scopes /subscriptions/<SUBSCRIPTION_ID>/resourceGroups/<RESOURCE_GROUP> \
-                         --json-auth
+az ad sp create-for-rbac \
+    --name "github-actions-agentic" \
+    --role contributor \
+    --scopes /subscriptions/<YOUR_SUBSCRIPTION_ID>/resourceGroups/agentic-parallelism-rg \
+    --sdk-auth \
+    --output json
+```
+The command prints one line of JSON that looks like this (values redacted):
+```json
+{
+  "clientId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "clientSecret": "xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
+  "subscriptionId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "tenantId": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx",
+  "activeDirectoryEndpointUrl": "https://login.microsoftonline.com",
+  "resourceManagerEndpointUrl": "https://management.azure.com/",
+  "activeDirectoryGraphResourceId": "https://graph.windows.net/",
+  "sqlManagementEndpointUrl": "https://management.core.windows.net:8443/",
+  "galleryEndpointUrl": "https://gallery.azure.com/",
+  "managementEndpointUrl": "https://management.core.windows.net/"
+}
 ```
 Copy the entire JSON output and save it as the secret `AZURE_CREDENTIALS`.
 
