@@ -55,6 +55,17 @@ jobs:
 
       - name: Deploy to Azure Container Apps
         run: |
+          set -x  # Enable verbose logging
+          
+          # Register Providers
+          echo "Registering Azure Providers..."
+          az provider register --namespace Microsoft.App --wait
+          az provider register --namespace Microsoft.OperationalInsights --wait
+
+          # Debug Variables
+          echo "Resource Group: ${{ secrets.AZURE_RESOURCE_GROUP }}"
+          echo "Location: ${{ steps.get_location.outputs.location }}"
+
           # 1. Find or Create Container Apps Environment
           ENV_NAME=$(az containerapp env list -g ${{ secrets.AZURE_RESOURCE_GROUP }} --query "[0].name" -o tsv)
           if [ -z "$ENV_NAME" ]; then
