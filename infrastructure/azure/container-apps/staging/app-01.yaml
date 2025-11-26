@@ -1,0 +1,67 @@
+# Azure Container App configuration for App 01 - Staging Environment
+
+properties:
+  environmentId: /subscriptions/{SUBSCRIPTION_ID}/resourceGroups/agentic-parallelism-rg/providers/Microsoft.App/managedEnvironments/agentic-parallelism-staging
+  configuration:
+    ingress:
+      external: true
+      targetPort: 8000
+      transport: auto
+      traffic:
+        - latestRevision: true
+          weight: 100
+    secrets:
+      - name: openai-api-key
+        value: ${OPENAI_API_KEY}
+      - name: langchain-api-key
+        value: ${LANGCHAIN_API_KEY}
+      - name: sentry-dsn
+        value: ${SENTRY_DSN}
+      - name: tavily-api-key
+        value: ${TAVILY_API_KEY}
+      - name: acr-password
+        value: ${ACR_PASSWORD}
+    registries:
+      - server: ${ACR_NAME}.azurecr.io
+        username: ${ACR_USERNAME}
+        passwordSecretRef: acr-password
+  template:
+    containers:
+      - name: parallel-tool-use
+        image: ${ACR_NAME}.azurecr.io/01_parallel_tool_use:staging-latest
+        resources:
+          cpu: 0.25  # 0.25 vCPU for staging
+          memory: 0.5Gi  # 512 MB for staging
+        env:
+          - name: ENVIRONMENT
+            value: staging
+          - name: VERSION
+            value: staging-latest
+          - name: LLM_PROVIDER
+            value: openai
+          - name: OPENAI_API_KEY
+            secretRef: openai-api-key
+          - name: LANGCHAIN_TRACING_V2
+            value: "true"
+          - name: LANGCHAIN_API_KEY
+            secretRef: langchain-api-key
+          - name: LANGCHAIN_PROJECT
+            value: agentic-parallelism-staging
+          - name: SENTRY_DSN
+            secretRef: sentry-dsn
+          - name: SENTRY_ENVIRONMENT
+            value: staging
+          - name: TAVILY_API_KEY
+            secretRef: tavily-api-key
+          - name: API_HOST
+            value: 0.0.0.0
+          - name: API_PORT
+            value: "8000"
+    scale:
+      minReplicas: 1
+      maxReplicas: 2  # Low scale for staging
+      rules:
+        - name: http-scaling
+          http:
+            metadata:
+              concurrentRequests: "10"

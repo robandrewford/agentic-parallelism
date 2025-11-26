@@ -1,0 +1,73 @@
+# Azure Container App configuration for App 01 - Production Environment
+
+properties:
+  environmentId: /subscriptions/{SUBSCRIPTION_ID}/resourceGroups/agentic-parallelism-rg/providers/Microsoft.App/managedEnvironments/agentic-parallelism-production
+  configuration:
+    ingress:
+      external: true
+      targetPort: 8000
+      transport: auto
+      traffic:
+        - latestRevision: true
+          weight: 100
+    secrets:
+      - name: openai-api-key
+        value: ${OPENAI_API_KEY}
+      - name: langchain-api-key
+        value: ${LANGCHAIN_API_KEY}
+      - name: sentry-dsn
+        value: ${SENTRY_DSN}
+      - name: tavily-api-key
+        value: ${TAVILY_API_KEY}
+      - name: acr-password
+        value: ${ACR_PASSWORD}
+    registries:
+      - server: ${ACR_NAME}.azurecr.io
+        username: ${ACR_USERNAME}
+        passwordSecretRef: acr-password
+  template:
+    containers:
+      - name: parallel-tool-use
+        image: ${ACR_NAME}.azurecr.io/01_parallel_tool_use:production-latest
+        resources:
+          cpu: 0.5  # 0.5 vCPU for production
+          memory: 1Gi  # 1 GB for production
+        env:
+          - name: ENVIRONMENT
+            value: production
+          - name: VERSION
+            value: ${VERSION}
+          - name: LLM_PROVIDER
+            value: openai
+          - name: OPENAI_API_KEY
+            secretRef: openai-api-key
+          - name: LANGCHAIN_TRACING_V2
+            value: "true"
+          - name: LANGCHAIN_API_KEY
+            secretRef: langchain-api-key
+          - name: LANGCHAIN_PROJECT
+            value: agentic-parallelism-production
+          - name: SENTRY_DSN
+            secretRef: sentry-dsn
+          - name: SENTRY_ENVIRONMENT
+            value: production
+          - name: TAVILY_API_KEY
+            secretRef: tavily-api-key
+          - name: API_HOST
+            value: 0.0.0.0
+          - name: API_PORT
+            value: "8000"
+    scale:
+      minReplicas: 2  # Higher minimum for production
+      maxReplicas: 10  # Higher maximum for production
+      rules:
+        - name: http-scaling
+          http:
+            metadata:
+              concurrentRequests: "20"
+        - name: cpu-scaling
+          custom:
+            type: cpu
+            metadata:
+              type: Utilization
+              value: "70"

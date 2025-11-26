@@ -1,0 +1,57 @@
+name: CI - Lint and Test
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app:
+          - parallel_tool_use
+          # Add more apps as they are refactored
+          # - 02_parallel_hypothesis
+          # - 03_parallel_evaluation
+          # ... etc
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+      
+      - name: Install shared dependencies
+        run: |
+          pip install -e .
+          pip install pytest pytest-cov ruff
+      
+      - name: Install app dependencies
+        run: |
+          pip install -r apps/${{ matrix.app }}/requirements.txt
+      
+      - name: Lint with ruff
+        run: |
+          ruff check apps/${{ matrix.app }}
+          ruff check shared/
+      
+      - name: Run unit tests
+        run: |
+          pytest apps/${{ matrix.app }}/tests/test_unit.py --cov --cov-report=xml --cov-report=term
+      
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        if: matrix.app == '01_parallel_tool_use'  # Only upload once
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false

@@ -1,0 +1,83 @@
+name: CD - Deploy to Azure Production
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'  # Semantic versioning tags (e.g., v1.0.0)
+
+jobs:
+  deploy-production:
+    runs-on: ubuntu-latest
+    environment: production
+    strategy:
+      matrix:
+        app:
+          - name: parallel_tool_use
+            container_app_name: parallel-tool-use-production
+          # Add more apps as they are refactored
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Get version from tag
+        id: get_version
+        run: echo "VERSION=${GITHUB_REF#refs/tags/}" >> $GITHUB_OUTPUT
+      
+      - name: Log in to Azure
+        uses: azure/login@v2
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+      
+      - name: Log in to Azure Container Registry
+        uses: azure/docker-login@v1
+        with:
+          login-server: ${{ secrets.AZURE_REGISTRY }}
+          username: ${{ secrets.AZURE_CLIENT_ID }}
+          password: ${{ secrets.AZURE_CLIENT_SECRET }}
+      
+      - name: Build Docker image
+        run: |
+          docker build \
+            -t ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:${{ steps.get_version.outputs.VERSION }} \
+            -t ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:production-latest \
+            -f apps/${{ matrix.app.name }}/Dockerfile \
+            .
+      
+      - name: Push Docker image
+        run: |
+          docker push ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:${{ steps.get_version.outputs.VERSION }}
+          docker push ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:production-latest
+      
+      - name: Deploy to Azure Container Apps
+        uses: azure/container-apps-deploy-action@v1
+        with:
+          resource-group: ${{ secrets.AZURE_RESOURCE_GROUP }}
+          container-app-name: ${{ matrix.app.container_app_name }}
+          image: ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:${{ steps.get_version.outputs.VERSION }}
+          environment-variables: |
+            ENVIRONMENT=production
+            VERSION=${{ steps.get_version.outputs.VERSION }}
+            LLM_PROVIDER=openai
+            SENTRY_ENVIRONMENT=production
+      
+      - name: Verify deployment
+        run: |
+          echo "Waiting for deployment to complete..."
+          sleep 30
+          APP_URL=$(az containerapp show \
+            --name ${{ matrix.app.container_app_name }} \
+            --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+            --query properties.configuration.ingress.fqdn -o tsv)
+          curl -f "https://${APP_URL}/health" || exit 1
+          echo "✅ Production deployment verified!"
+      
+      - name: Create Sentry release
+        uses: getsentry/action-release@v1
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        with:
+          environment: production
+          version: ${{ steps.get_version.outputs.VERSION }}

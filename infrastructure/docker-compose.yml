@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  app-01:
+    build:
+      context: ..
+      dockerfile: apps/parallel_tool_use/Dockerfile
+    container_name: parallel-tool-use-local
+    ports:
+      - "8001:8000"
+    env_file:
+      - ../apps/parallel_tool_use/.env
+    environment:
+      - ENVIRONMENT=local
+      - API_HOST=0.0.0.0
+      - API_PORT=8000
+    volumes:
+      - ../apps/01_parallel_tool_use:/app/apps/01_parallel_tool_use
+      - ../shared:/app/shared
+    networks:
+      - agentic-network
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+  # Add more app services as they are refactored
+  # app-02:
+  #   build:
+  #     context: ..
+  #     dockerfile: apps/02_parallel_hypothesis/Dockerfile
+  #   container_name: parallel-hypothesis-local
+  #   ports:
+  #     - "8002:8000"
+  #   ...
+
+networks:
+  agentic-network:
+    driver: bridge

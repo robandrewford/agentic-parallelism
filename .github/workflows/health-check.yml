@@ -1,0 +1,69 @@
+name: Uptime Health Check
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'  # Every 15 minutes
+  workflow_dispatch:  # Allow manual triggering
+
+jobs:
+  health-check:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        app:
+          - name: parallel-tool-use
+            url_staging: https://parallel-tool-use-staging.azurecontainerapps.io/health
+            url_production: https://parallel-tool-use-production.azurecontainerapps.io/health
+          # Add more apps as they are deployed
+          # - name: parallel-hypothesis
+          #   url_staging: https://parallel-hypothesis-staging.azurecontainerapps.io/health
+          #   url_production: https://parallel-hypothesis-production.azurecontainerapps.io/health
+
+    steps:
+      - name: Check staging health endpoint
+        id: staging_check
+        continue-on-error: true
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" ${{ matrix.app.url_staging }})
+          if [ $response != "200" ]; then
+            echo "❌ Health check failed for ${{ matrix.app.name }} (staging): HTTP $response"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          echo "✅ Health check passed for ${{ matrix.app.name }} (staging)"
+          echo "status=success" >> $GITHUB_OUTPUT
+      
+      - name: Check production health endpoint
+        id: production_check
+        continue-on-error: true
+        run: |
+          response=$(curl -s -o /dev/null -w "%{http_code}" ${{ matrix.app.url_production }})
+          if [ $response != "200" ]; then
+            echo "❌ Health check failed for ${{ matrix.app.name }} (production): HTTP $response"
+            echo "status=failed" >> $GITHUB_OUTPUT
+            exit 1
+          fi
+          echo "✅ Health check passed for ${{ matrix.app.name }} (production)"
+          echo "status=success" >> $GITHUB_OUTPUT
+      
+      - name: Notify on staging failure
+        if: steps.staging_check.outputs.status == 'failed'
+        uses: getsentry/action-release@v1
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        with:
+          environment: staging
+          version: latest
+      
+      - name: Notify on production failure
+        if: steps.production_check.outputs.status == 'failed'
+        uses: getsentry/action-release@v1
+        env:
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ secrets.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ secrets.SENTRY_PROJECT }}
+        with:
+          environment: production
+          version: latest
