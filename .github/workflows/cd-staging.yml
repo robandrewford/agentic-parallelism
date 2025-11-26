@@ -43,6 +43,10 @@ jobs:
           docker push ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:staging-${{ github.sha }}
           docker push ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:staging-latest
 
+      - name: Install Azure CLI extension
+        run: |
+          az extension add --name containerapp --upgrade
+
       - name: Get Resource Group Location
         id: get_location
         run: |
@@ -61,7 +65,8 @@ jobs:
             --registry-server ${{ secrets.AZURE_REGISTRY }} \
             --registry-username ${{ secrets.AZURE_CLIENT_ID }} \
             --registry-password ${{ secrets.AZURE_CLIENT_SECRET }} \
-            --env-vars ENVIRONMENT=staging VERSION=${{ github.sha }} LLM_PROVIDER=openai SENTRY_ENVIRONMENT=staging
+            --env-vars ENVIRONMENT=staging VERSION=${{ github.sha }} LLM_PROVIDER=openai SENTRY_ENVIRONMENT=staging \
+            --debug
 
       - name: Verify deployment
         run: |
