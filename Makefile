@@ -81,4 +81,35 @@ export-acr-json:
 view-acr-json:
 	cat acr-info.json
 
-.PHONY: env-setup install-deps test-unit test-e2e azure-login azure-rg-create azure-rg-exists azure-set-subscription azure-register-provider azure-verify-provider acr-create acr-login acr-login-server acr-credentials sp-create export-acr-json view-acr-json
+# -------------------------------------------------
+# Workflow Monitor (Background Process)
+# -------------------------------------------------
+monitor-start:
+	@if [ -f monitor.pid ]; then \
+		echo "Monitor is already running (PID: $$(cat monitor.pid))"; \
+	else \
+		nohup python3 scripts/monitor_workflows.py > monitor.log 2>&1 & echo $$! > monitor.pid; \
+		echo "Monitor started in background (PID: $$(cat monitor.pid))"; \
+		echo "Logs are being written to monitor.log"; \
+	fi
+
+monitor-stop:
+	@if [ -f monitor.pid ]; then \
+		kill $$(cat monitor.pid) && rm monitor.pid; \
+		echo "Monitor stopped"; \
+	else \
+		echo "Monitor is not running"; \
+	fi
+
+monitor-status:
+	@if [ -f monitor.pid ]; then \
+		echo "Monitor is running (PID: $$(cat monitor.pid))"; \
+		echo "--- Recent Logs ---"; \
+		tail -n 5 monitor.log; \
+	else \
+		echo "Monitor is not running"; \
+	fi
+
+monitor-restart: monitor-stop monitor-start
+
+.PHONY: env-setup install-deps test-unit test-e2e azure-login azure-rg-create azure-rg-exists azure-set-subscription azure-register-provider azure-verify-provider acr-create acr-login acr-login-server acr-credentials sp-create export-acr-json view-acr-json monitor-start monitor-stop monitor-status monitor-restart
