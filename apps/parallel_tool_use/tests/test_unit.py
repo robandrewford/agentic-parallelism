@@ -1,23 +1,21 @@
 """Unit tests for App 01: Parallel Tool Use."""
+import sys
 import pytest
 from unittest.mock import patch, MagicMock
 from fastapi.testclient import TestClient
 
 
-@pytest.fixture
-def mock_llm():
-    """Mock LLM for testing."""
-    with patch('apps.parallel_tool_use.app.LLMFactory.create') as mock:
-        llm = MagicMock()
-        llm.bind_tools = MagicMock(return_value=llm)
-        mock.return_value = llm
-        yield llm
-
-
-@pytest.fixture
-def mock_config():
-    """Mock configuration for testing."""
-    with patch('apps.parallel_tool_use.app.load_config') as mock:
+@pytest.fixture(autouse=True)
+def mock_dependencies():
+    """Mock environment dependencies before app import."""
+    # Remove app from sys.modules to ensure clean import with mocks
+    if 'apps.parallel_tool_use.app' in sys.modules:
+        del sys.modules['apps.parallel_tool_use.app']
+        
+    with patch('shared.config.load_config') as mock_config_load, \
+         patch('shared.llm.LLMFactory.create') as mock_llm_create:
+        
+        # Setup mock config
         config = MagicMock()
         config.sentry_dsn = None
         config.environment = "test"
@@ -25,8 +23,14 @@ def mock_config():
         config.api_host = "0.0.0.0"
         config.api_port = 8000
         config.tavily_api_key = "test-key"
-        mock.return_value = config
-        yield config
+        mock_config_load.return_value = config
+        
+        # Setup mock LLM
+        llm = MagicMock()
+        llm.bind_tools = MagicMock(return_value=llm)
+        mock_llm_create.return_value = llm
+        
+        yield
 
 
 def test_health_endpoint():
