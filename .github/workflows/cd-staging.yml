@@ -47,6 +47,12 @@ jobs:
         run: |
           az extension add --name containerapp --upgrade
 
+      - name: Get Resource Group Location
+        id: get_location
+        run: |
+          LOCATION=$(az group show --name ${{ secrets.AZURE_RESOURCE_GROUP }} --query location -o tsv)
+          echo "location=$LOCATION" >> $GITHUB_OUTPUT
+
       - name: Deploy to Azure Container Apps
         run: |
           # 1. Find or Create Container Apps Environment
