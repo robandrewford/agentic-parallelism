@@ -7,8 +7,12 @@ from typing import Dict, List, Any, Optional
 
 # Configuration
 REPO_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-HISTORY_FILE = os.path.join(REPO_DIR, "workflow_history.jsonl")
+DATA_DIR = os.path.join(REPO_DIR, "data")
+HISTORY_FILE = os.path.join(DATA_DIR, "workflow_history.jsonl")
 POLL_INTERVAL_SECONDS = 60  # Check every minute
+
+# Ensure data directory exists
+os.makedirs(DATA_DIR, exist_ok=True)
 
 def run_gh_command(args: List[str]) -> Any:
     """Run a GitHub CLI command and return the JSON output."""

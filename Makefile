@@ -85,27 +85,27 @@ view-acr-json:
 # Workflow Monitor (Background Process)
 # -------------------------------------------------
 monitor-start:
-	@if [ -f monitor.pid ]; then \
-		echo "Monitor is already running (PID: $$(cat monitor.pid))"; \
+	@if [ -f data/monitor.pid ]; then \
+		echo "Monitor is already running (PID: $$(cat data/monitor.pid))"; \
 	else \
-		nohup python3 scripts/monitor_workflows.py > monitor.log 2>&1 & echo $$! > monitor.pid; \
-		echo "Monitor started in background (PID: $$(cat monitor.pid))"; \
-		echo "Logs are being written to monitor.log"; \
+		nohup python3 scripts/monitor_workflows.py > data/monitor.log 2>&1 & echo $$! > data/monitor.pid; \
+		echo "Monitor started in background (PID: $$(cat data/monitor.pid))"; \
+		echo "Logs are being written to data/monitor.log"; \
 	fi
 
 monitor-stop:
-	@if [ -f monitor.pid ]; then \
-		kill $$(cat monitor.pid) && rm monitor.pid; \
+	@if [ -f data/monitor.pid ]; then \
+		kill $$(cat data/monitor.pid) && rm data/monitor.pid; \
 		echo "Monitor stopped"; \
 	else \
 		echo "Monitor is not running"; \
 	fi
 
 monitor-status:
-	@if [ -f monitor.pid ]; then \
-		echo "Monitor is running (PID: $$(cat monitor.pid))"; \
+	@if [ -f data/monitor.pid ]; then \
+		echo "Monitor is running (PID: $$(cat data/monitor.pid))"; \
 		echo "--- Recent Logs ---"; \
-		tail -n 5 monitor.log; \
+		tail -n 5 data/monitor.log; \
 	else \
 		echo "Monitor is not running"; \
 	fi
