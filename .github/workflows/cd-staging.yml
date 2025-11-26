@@ -48,7 +48,7 @@ jobs:
         with:
           resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
           containerAppName: ${{ matrix.app.container_app_name }}
-          image: ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:staging-${{ github.sha }}
+          imageToDeploy: ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:staging-${{ github.sha }}
           acrName: ${{ secrets.AZURE_REGISTRY }}
           acrUsername: ${{ secrets.AZURE_CLIENT_ID }}
           acrPassword: ${{ secrets.AZURE_CLIENT_SECRET }}
