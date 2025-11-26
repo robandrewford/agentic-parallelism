@@ -44,11 +44,14 @@ jobs:
           docker push ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:staging-latest
 
       - name: Deploy to Azure Container Apps
-        uses: azure/container-apps-deploy-action@v1
+        uses: azure/container-apps-deploy-action@v2
         with:
           resourceGroup: ${{ secrets.AZURE_RESOURCE_GROUP }}
           containerAppName: ${{ matrix.app.container_app_name }}
           image: ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:staging-${{ github.sha }}
+          acrName: ${{ secrets.AZURE_REGISTRY }}
+          acrUsername: ${{ secrets.AZURE_CLIENT_ID }}
+          acrPassword: ${{ secrets.AZURE_CLIENT_SECRET }}
           environmentVariables: |
             ENVIRONMENT=staging
             VERSION=${{ github.sha }}

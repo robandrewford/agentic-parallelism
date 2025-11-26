@@ -31,6 +31,22 @@ def run_gh_command(args: List[str]) -> Any:
         print(f"Error decoding JSON from gh command: {result.stdout}")
         return None
 
+def run_gh_command_text(args: List[str]) -> Optional[str]:
+    """Run a GitHub CLI command and return the plain text output."""
+    try:
+        result = subprocess.run(
+            ["gh"] + args,
+            cwd=REPO_DIR,
+            capture_output=True,
+            text=True,
+            check=True
+        )
+        return result.stdout if result.stdout.strip() else None
+    except subprocess.CalledProcessError as e:
+        print(f"Error running gh command: {e}")
+        print(f"Stderr: {e.stderr}")
+        return None
+
 def load_history() -> Dict[str, Any]:
     """Load existing history to avoid duplicates."""
     history = {}
@@ -49,11 +65,26 @@ def append_to_history(record: Dict[str, Any]):
     with open(HISTORY_FILE, "a") as f:
         f.write(json.dumps(record) + "\n")
 
-def get_failure_details(run_id: str) -> str:
+def get_failure_details(run_id: str, repo_full_name: str) -> str:
     """Fetch failure annotations for a specific run."""
-    # Try to get annotations via 'gh run view'
-    # Note: The JSON output for 'view' might vary, we'll try to extract useful info
-    data = run_gh_command(["run", "view", run_id, "--json", "jobs"])
+    # First, try to get the log for failed steps
+    print(f"    Fetching logs for run {run_id} from {repo_full_name}...")
+    log_output = run_gh_command_text(["run", "view", run_id, "--repo", repo_full_name, "--log-failed"])
+    
+    if log_output:
+        # Look for lines starting with ##[error]
+        errors = []
+        for line in log_output.splitlines():
+            if "##[error]" in line:
+                # Clean up the error message
+                msg = line.split("##[error]")[1].strip()
+                errors.append(msg)
+        
+        if errors:
+            return "; ".join(errors)
+
+    # Fallback to 'gh run view --json jobs' if log fetching fails or finds no explicit errors
+    data = run_gh_command(["run", "view", run_id, "--repo", repo_full_name, "--json", "jobs"])
     if not data:
         return "Could not fetch failure details."
     
@@ -108,7 +139,13 @@ def monitor_workflows():
                         failure_msg = ""
                         if status == "completed" and conclusion == "failure":
                             print(f"  -> Run {run_id} ({run['workflowName']}) failed. Fetching details...")
-                            failure_msg = get_failure_details(run_id)
+                            # Extract repo from URL (e.g., https://github.com/owner/repo/actions/runs/...)
+                            try:
+                                repo_part = run['url'].split("github.com/")[1].split("/actions")[0]
+                            except IndexError:
+                                repo_part = "robandrewford/agentic-parallelism" # Fallback
+                            
+                            failure_msg = get_failure_details(run_id, repo_part)
                         
                         # Create record
                         record = {
