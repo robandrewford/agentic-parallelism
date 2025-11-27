@@ -56,11 +56,6 @@ jobs:
       - name: Deploy to Azure Container Apps
         run: |
           set -x  # Enable verbose logging
-          
-          # Register Providers
-          echo "Registering Azure Providers..."
-          az provider register --namespace Microsoft.App --wait --debug
-          az provider register --namespace Microsoft.OperationalInsights --wait --debug
 
           # Debug Variables
           echo "Resource Group: ${{ secrets.AZURE_RESOURCE_GROUP }}"
