@@ -61,44 +61,17 @@ jobs:
           echo "Resource Group: ${{ secrets.AZURE_RESOURCE_GROUP }}"
           echo "Location: ${{ steps.get_location.outputs.location }}"
 
-          # 1. Find or Create Container Apps Environment
+          # 1. Find Container Apps Environment - or create it manually
           ENV_NAME=$(az containerapp env list -g ${{ secrets.AZURE_RESOURCE_GROUP }} --query "[0].name" -o tsv --debug)
+          
           if [ -z "$ENV_NAME" ]; then
-            echo "⚠️ No Container Apps Environment found. Creating one..."
-            ENV_NAME="managed-env"
-            
-            # Create Log Analytics workspace
-            WORKSPACE_NAME="containerapp-logs"
-            echo "Creating Log Analytics workspace: $WORKSPACE_NAME"
-            az monitor log-analytics workspace create \
-              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-              --workspace-name $WORKSPACE_NAME \
-              --location ${{ steps.get_location.outputs.location }} \
-              --debug
-            
-            # Get workspace ID and shared key
-            WORKSPACE_ID=$(az monitor log-analytics workspace show \
-              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-              --workspace-name $WORKSPACE_NAME \
-              --query customerId -o tsv --debug)
-            
-            WORKSPACE_KEY=$(az monitor log-analytics workspace get-shared-keys \
-              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-              --workspace-name $WORKSPACE_NAME \
-              --query primarySharedKey -o tsv --debug)
-            
-            # Create environment with Log Analytics
-            az containerapp env create \
-              --name $ENV_NAME \
-              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-              --location ${{ steps.get_location.outputs.location }} \
-              --logs-workspace-id $WORKSPACE_ID \
-              --logs-workspace-key $WORKSPACE_KEY \
-              --debug
-            echo "✅ Created Environment: $ENV_NAME"
-          else
-            echo "✅ Found Environment: $ENV_NAME"
+            echo "❌ No Container Apps Environment found in resource group ${{ secrets.AZURE_RESOURCE_GROUP }}."
+            echo "Please create one manually first:"
+            echo "  az containerapp env create --name managed-env --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} --location westus"
+            exit 1
           fi
+          
+          echo "✅ Found Environment: $ENV_NAME"
 
           # 2. Check if App exists
           APP_EXISTS=$(az containerapp show -n ${{ matrix.app.container_app_name }} -g ${{ secrets.AZURE_RESOURCE_GROUP }} --query id -o tsv --debug || echo "")
