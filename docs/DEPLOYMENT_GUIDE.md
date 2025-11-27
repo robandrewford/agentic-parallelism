@@ -66,11 +66,15 @@ az group exists --name agentic-parallelism-rg
 # 2.2. Choose the subscription
 az account set --subscription <SUBSCRIPTION_ID>
 
-# 2.3. Register the Container Registry provider (required once per subscription)
-az provider register --namespace Microsoft.ContainerRegistry
+# 2.3. Register required Azure providers (required once per subscription)
+az provider register --namespace Microsoft.ContainerRegistry --wait
+az provider register --namespace Microsoft.App --wait
+az provider register --namespace Microsoft.OperationalInsights --wait
 
 # 2.4. Verify registration
 az provider show --namespace Microsoft.ContainerRegistry --query "registrationState" -o tsv   # should be "Registered"
+az provider show --namespace Microsoft.App --query "registrationState" -o tsv   # should be "Registered"
+az provider show --namespace Microsoft.OperationalInsights --query "registrationState" -o tsv   # should be "Registered"
 
 # 2.5. Create the ACR
 az acr create \
@@ -91,7 +95,39 @@ az acr credential show --name agenticparallelismacr
 
 ---
 
-## 4. GitHub Secrets for CI/CD
+## 4. Azure Container Apps Provider Registration
+
+> [!IMPORTANT]
+> **Critical Step**: Before deploying to Azure Container Apps, you **must** register the required resource providers. This only needs to be done **once per Azure subscription**.
+
+The GitHub Actions Service Principal does not have subscription-level permissions to register providers, so this must be done manually by someone with `Contributor` or `Owner` access to the subscription.
+
+### Register Providers
+
+Run these commands with an account that has sufficient permissions:
+
+```bash
+# Login with an account that has Contributor/Owner access
+az login
+
+# Set the subscription
+az account set --subscription <YOUR_SUBSCRIPTION_ID>
+
+# Register the required providers
+az provider register --namespace Microsoft.App --wait
+az provider register --namespace Microsoft.OperationalInsights --wait
+
+# Verify registration (should show "Registered")
+az provider show --namespace Microsoft.App --query "registrationState" -o tsv
+az provider show --namespace Microsoft.OperationalInsights --query "registrationState" -o tsv
+```
+
+> [!NOTE]
+> If you skip this step, the CD workflow will fail with an `AuthorizationFailed` error when trying to create the Container Apps Environment.
+
+---
+
+## 5. GitHub Secrets for CI/CD
 
 To enable the automated deployment pipelines (`.github/workflows/`), you must set the following secrets in your GitHub Repository settings (**Settings** > **Secrets and variables** > **Actions**).
 

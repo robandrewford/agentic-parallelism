@@ -70,6 +70,7 @@ jobs:
               --name $ENV_NAME \
               --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
               --location ${{ steps.get_location.outputs.location }} \
+              --logs-destination none \
               --debug
             echo "✅ Created Environment: $ENV_NAME"
           else
