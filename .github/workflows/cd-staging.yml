@@ -66,11 +66,34 @@ jobs:
           if [ -z "$ENV_NAME" ]; then
             echo "⚠️ No Container Apps Environment found. Creating one..."
             ENV_NAME="managed-env"
+            
+            # Create Log Analytics workspace
+            WORKSPACE_NAME="containerapp-logs"
+            echo "Creating Log Analytics workspace: $WORKSPACE_NAME"
+            az monitor log-analytics workspace create \
+              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+              --workspace-name $WORKSPACE_NAME \
+              --location ${{ steps.get_location.outputs.location }} \
+              --debug
+            
+            # Get workspace ID and shared key
+            WORKSPACE_ID=$(az monitor log-analytics workspace show \
+              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+              --workspace-name $WORKSPACE_NAME \
+              --query customerId -o tsv --debug)
+            
+            WORKSPACE_KEY=$(az monitor log-analytics workspace get-shared-keys \
+              --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
+              --workspace-name $WORKSPACE_NAME \
+              --query primarySharedKey -o tsv --debug)
+            
+            # Create environment with Log Analytics
             az containerapp env create \
               --name $ENV_NAME \
               --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
               --location ${{ steps.get_location.outputs.location }} \
-              --logs-destination none \
+              --logs-workspace-id $WORKSPACE_ID \
+              --logs-workspace-key $WORKSPACE_KEY \
               --debug
             echo "✅ Created Environment: $ENV_NAME"
           else
