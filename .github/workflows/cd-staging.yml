@@ -59,29 +59,30 @@ jobs:
           
           # Register Providers
           echo "Registering Azure Providers..."
-          az provider register --namespace Microsoft.App --wait
-          az provider register --namespace Microsoft.OperationalInsights --wait
+          az provider register --namespace Microsoft.App --wait --debug
+          az provider register --namespace Microsoft.OperationalInsights --wait --debug
 
           # Debug Variables
           echo "Resource Group: ${{ secrets.AZURE_RESOURCE_GROUP }}"
           echo "Location: ${{ steps.get_location.outputs.location }}"
 
           # 1. Find or Create Container Apps Environment
-          ENV_NAME=$(az containerapp env list -g ${{ secrets.AZURE_RESOURCE_GROUP }} --query "[0].name" -o tsv)
+          ENV_NAME=$(az containerapp env list -g ${{ secrets.AZURE_RESOURCE_GROUP }} --query "[0].name" -o tsv --debug)
           if [ -z "$ENV_NAME" ]; then
             echo "⚠️ No Container Apps Environment found. Creating one..."
             ENV_NAME="managed-env"
             az containerapp env create \
               --name $ENV_NAME \
               --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
-              --location ${{ steps.get_location.outputs.location }}
+              --location ${{ steps.get_location.outputs.location }} \
+              --debug
             echo "✅ Created Environment: $ENV_NAME"
           else
             echo "✅ Found Environment: $ENV_NAME"
           fi
 
           # 2. Check if App exists
-          APP_EXISTS=$(az containerapp show -n ${{ matrix.app.container_app_name }} -g ${{ secrets.AZURE_RESOURCE_GROUP }} --query id -o tsv || echo "")
+          APP_EXISTS=$(az containerapp show -n ${{ matrix.app.container_app_name }} -g ${{ secrets.AZURE_RESOURCE_GROUP }} --query id -o tsv --debug || echo "")
 
           # 3. Deploy
           if [ -n "$APP_EXISTS" ]; then
@@ -90,7 +91,8 @@ jobs:
               --name ${{ matrix.app.container_app_name }} \
               --resource-group ${{ secrets.AZURE_RESOURCE_GROUP }} \
               --image ${{ secrets.AZURE_REGISTRY }}/${{ matrix.app.name }}:staging-${{ github.sha }} \
-              --set-env-vars ENVIRONMENT=staging VERSION=${{ github.sha }} LLM_PROVIDER=openai SENTRY_ENVIRONMENT=staging
+              --set-env-vars ENVIRONMENT=staging VERSION=${{ github.sha }} LLM_PROVIDER=openai SENTRY_ENVIRONMENT=staging \
+              --debug
           else
             echo "🚀 App does not exist. Creating..."
             az containerapp create \
@@ -103,7 +105,8 @@ jobs:
               --registry-server ${{ secrets.AZURE_REGISTRY }} \
               --registry-username ${{ secrets.AZURE_CLIENT_ID }} \
               --registry-password ${{ secrets.AZURE_CLIENT_SECRET }} \
-              --env-vars ENVIRONMENT=staging VERSION=${{ github.sha }} LLM_PROVIDER=openai SENTRY_ENVIRONMENT=staging
+              --env-vars ENVIRONMENT=staging VERSION=${{ github.sha }} LLM_PROVIDER=openai SENTRY_ENVIRONMENT=staging \
+              --debug
           fi
 
       - name: Verify deployment
